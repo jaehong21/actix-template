@@ -1,31 +1,36 @@
-use crate::controller::user;
-use crate::database::SurrealDb;
-use actix_web::{guard, web, App, HttpServer};
+extern crate core;
+
+use crate::controller::{photo, user};
+use crate::database::Client;
+use actix_web::{web, App, HttpServer};
 use std::sync::Arc;
 
 mod controller;
 mod database;
-pub mod entity;
+mod entity;
+mod init;
 mod utils;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let client = database::connect().await;
+    init::init_env();
+    let client = init::init_database().await;
+    let s3_client = init::init_s3_storage().await;
 
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(SurrealDb {
-                client: Arc::new(client.clone()),
+            .app_data(web::Data::new(Client {
+                surreal: Arc::new(client.clone()),
+                s3: Arc::new(s3_client.clone()),
             }))
-            .service(
-                web::scope("/")
-                    // .guard(guard::Header("Accept", "*/*"))
-                    .route("", web::get().to(controller::index)),
-            )
+            // [/]
+            .service(controller::routes())
             // [/user]
             .service(user::routes())
+            // [/photo]
+            .service(photo::routes())
     })
-    .bind(("127.0.0.1", 9000))?
+    .bind(("127.0.0.1", 3000))?
     .run()
     .await
 }

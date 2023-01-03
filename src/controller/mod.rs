@@ -1,7 +1,8 @@
 mod jwt;
+pub mod photo;
 pub mod user;
 
-use actix_web::Responder;
+use actix_web::{web, Responder, Scope};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -9,8 +10,12 @@ pub struct JsonMessage {
     pub msg: String,
 }
 
-pub async fn index() -> impl Responder {
-    // req: HttpRequest in parameter
-    // println!("{:?}", req);
+pub fn routes() -> Scope {
+    web::scope("/")
+        // .guard(guard::Header("Accept", "*/*"))
+        .route("", web::get().to(index))
+}
+
+async fn index() -> impl Responder {
     "OK"
 }

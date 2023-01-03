@@ -1,8 +1,7 @@
 use crate::controller::JsonMessage;
-use crate::database::user::{find_user_by_id, find_user_by_username};
+use crate::database::user::find_user_by_username;
 use crate::database::SurrealClient;
 use crate::utils::getenv;
-use actix_web::cookie::Cookie;
 use actix_web::{HttpRequest, HttpResponse};
 use jsonwebtoken::errors::Error as JwtError;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
@@ -24,38 +23,44 @@ pub async fn validate_request(
     req: HttpRequest,
     client: Arc<SurrealClient>,
 ) -> Result<String, HttpResponse> {
-    match req.headers().get("Authorization") {
+    let access_token = match req.headers().get("Authorization") {
         Some(token) => match token.to_str() {
-            Ok(token) => {
-                let token = token.replace("Bearer ", "");
-                match validate_jwt(token) {
-                    Ok(sub) => match find_user_by_username(client.clone(), sub).await {
-                        Ok(user) => {
-                            if let Some(user) = user {
-                                Ok(user.username)
-                            } else {
-                                Err(HttpResponse::Unauthorized().json(JsonMessage {
-                                    msg: "User not found".to_string(),
-                                }))
-                            }
-                        }
-                        // SurrealDB error
-                        Err(e) => Err(HttpResponse::InternalServerError().json(e)),
-                    },
-                    // JwtError
-                    Err(e) => Err(HttpResponse::Unauthorized().json(JsonMessage {
-                        msg: format!("{:?}", e),
-                    })),
-                }
+            Ok(token) => token.replace("Bearer ", ""),
+            Err(_) => {
+                return Err(HttpResponse::InternalServerError().json(JsonMessage {
+                    msg: "Error parsing header to string".to_string(),
+                }));
             }
-            Err(_) => Err(HttpResponse::InternalServerError().json(JsonMessage {
-                msg: "Error parsing header to string".to_string(),
-            })),
         },
-        None => Err(HttpResponse::InternalServerError().json(JsonMessage {
-            msg: "Authorization field not exist".to_string(),
-        })),
-    }
+        None => {
+            return Err(HttpResponse::InternalServerError().json(JsonMessage {
+                msg: "Authorization field not exist".to_string(),
+            }));
+        }
+    };
+
+    let user = match validate_jwt(access_token) {
+        Ok(sub) => match find_user_by_username(client.clone(), sub).await {
+            Ok(user) => user,
+            Err(e) => {
+                return Err(HttpResponse::InternalServerError().json(e));
+            }
+        },
+        // JwtError
+        Err(e) => {
+            return Err(HttpResponse::Unauthorized().json(JsonMessage {
+                msg: format!("{:?}", e),
+            }));
+        }
+    };
+
+    return if let Some(user) = user {
+        Ok(user.username)
+    } else {
+        Err(HttpResponse::Unauthorized().json(JsonMessage {
+            msg: "User not found".to_string(),
+        }))
+    };
 }
 
 pub fn sign_jwt(sub: String) -> String {
