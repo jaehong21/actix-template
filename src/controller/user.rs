@@ -57,10 +57,7 @@ async fn login(body: web::Json<CreateUserRequest>, db: web::Data<SurrealDb>) -> 
 }
 
 /// [GET /user] finds all users (limit 100)
-async fn find_all_user(req: HttpRequest, db: web::Data<SurrealDb>) -> impl Responder {
-    let user_id = validate_request(req, db.client.clone()).await;
-    println!("user_id: {:?}", user_id);
-
+async fn find_all_user(db: web::Data<SurrealDb>) -> impl Responder {
     match user::find_all_user(db.client.clone()).await {
         Ok(users) => HttpResponse::Ok().json(users),
         Err(e) => HttpResponse::InternalServerError().json(e),

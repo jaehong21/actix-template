@@ -1,5 +1,5 @@
 use crate::controller::JsonMessage;
-use crate::database::user::find_user_by_id;
+use crate::database::user::{find_user_by_id, find_user_by_username};
 use crate::database::SurrealClient;
 use crate::utils::getenv;
 use actix_web::{HttpRequest, HttpResponse};
@@ -15,6 +15,10 @@ struct Claims {
     exp: usize,
 }
 
+/// find user_id from jwt in Authorization field in header
+/// if let Err(e) = validate_request(req, db.client.clone()).await {
+///     return e;
+/// }
 pub async fn validate_request(
     req: HttpRequest,
     client: Arc<SurrealClient>,
@@ -24,7 +28,7 @@ pub async fn validate_request(
             Ok(token) => {
                 let token = token.replace("Bearer ", "");
                 match validate_jwt(token) {
-                    Ok(sub) => match find_user_by_id(client.clone(), sub).await {
+                    Ok(sub) => match find_user_by_username(client.clone(), sub).await {
                         Ok(user) => {
                             if let Some(user) = user {
                                 Ok(user.username)
