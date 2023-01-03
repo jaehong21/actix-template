@@ -1,7 +1,10 @@
-use crate::controller::jwt::{sign_jwt, validate_request};
+use crate::controller::jwt::sign_jwt;
 use crate::controller::JsonMessage;
 use crate::database::{user, SurrealDb};
-use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
+use actix_web::cookie::time::format_description::Component::OffsetMinute;
+use actix_web::cookie::time::OffsetDateTime;
+use actix_web::cookie::Cookie;
+use actix_web::{web, HttpResponse, Responder, Scope};
 use serde::{Deserialize, Serialize};
 
 pub fn routes() -> Scope {
@@ -43,7 +46,21 @@ async fn login(body: web::Json<CreateUserRequest>, db: web::Data<SurrealDb>) -> 
     return if let Some(user) = user {
         if user.verify_password(&body.password) {
             let token = sign_jwt(user.username);
-            HttpResponse::Created().json(JsonMessage { msg: token })
+            let cookie = Cookie::build("refresh_token", token.clone())
+                .path("/")
+                // .domain("localhost")
+                // .secure(true)
+                .http_only(true)
+                .expires(
+                    // add 2weeks to now
+                    OffsetDateTime::from_unix_timestamp(chrono::Utc::now().timestamp() + 1_209_600)
+                        .expect("Cannot parse timestamp to OffsetDateTime"),
+                )
+                .finish();
+
+            HttpResponse::Created()
+                // .cookie(cookie)
+                .json(JsonMessage { msg: token })
         } else {
             HttpResponse::Unauthorized().json(JsonMessage {
                 msg: "Wrong password".to_owned(),

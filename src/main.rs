@@ -1,6 +1,6 @@
 use crate::controller::user;
 use crate::database::SurrealDb;
-use actix_web::{web, App, HttpServer};
+use actix_web::{guard, web, App, HttpServer};
 use std::sync::Arc;
 
 mod controller;
@@ -17,7 +17,11 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(SurrealDb {
                 client: Arc::new(client.clone()),
             }))
-            .route("/", web::get().to(controller::index))
+            .service(
+                web::scope("/")
+                    // .guard(guard::Header("Accept", "*/*"))
+                    .route("", web::get().to(controller::index)),
+            )
             // [/user]
             .service(user::routes())
     })

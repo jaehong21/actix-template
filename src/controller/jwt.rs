@@ -2,6 +2,7 @@ use crate::controller::JsonMessage;
 use crate::database::user::{find_user_by_id, find_user_by_username};
 use crate::database::SurrealClient;
 use crate::utils::getenv;
+use actix_web::cookie::Cookie;
 use actix_web::{HttpRequest, HttpResponse};
 use jsonwebtoken::errors::Error as JwtError;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
